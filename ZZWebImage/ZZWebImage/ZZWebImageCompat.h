@@ -9,7 +9,7 @@
 #import <TargetConditionals.h>
 
 #ifdef __OBJC_GC__
-    #error SDWebImage does not support Objective-C Garbage Collection
+    #error ZZWebImage does not support Objective-C Garbage Collection
 #endif
 
 // Apple's defines from TargetConditionals.h are a bit weird.

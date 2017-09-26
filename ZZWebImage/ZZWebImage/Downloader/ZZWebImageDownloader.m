@@ -9,9 +9,15 @@
 #import "ZZWebImageDownloader.h"
 #import "ZZWebImageDownloaderOperation.h"
 
-@interface ZZWebImageDownloader ()
+@interface ZZWebImageDownloader ()<NSURLSessionDataDelegate, NSURLSessionTaskDelegate>
 
+@property (nonatomic, strong, nonnull) NSOperationQueue *downloadQueue;
 @property (assign, nonatomic, nullable) Class operationClass;
+@property (nonatomic, strong, nullable) ZZHTTPHeadersMutableDictionary *HTTPHeaders;
+// This queue is used to serialize the handling of the network responses of all the download operation in a single queue
+@property (ZZDispatchQueueSetterSementics, nonatomic, nullable) dispatch_queue_t barrierQueue;
+
+@property (nonatomic, strong) NSURLSession *session;
 
 @end
 
@@ -28,7 +34,10 @@
 #pragma clang diagnostic pop
         
         //
-        [[NSNotificationCenter defaultCenter] removeObserver:activityIndicator name:<#(nullable NSNotificationName)#> object:<#(nullable id)#>]
+        [[NSNotificationCenter defaultCenter] removeObserver:activityIndicator name:ZZWebImageDownloadStartNotification object:nil];
+        [[NSNotificationCenter defaultCenter] removeObserver:activityIndicator name:ZZWebImageDownloadStopNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:activityIndicator selector:NSSelectorFromString(@"startActivity") name:ZZWebImageDownloadStartNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:activityIndicator selector:NSSelectorFromString(@"stopActivity") name:ZZWebImageDownloadStopNotification object:nil];
     }
 }
 
@@ -42,13 +51,110 @@
 }
 
 - (nonnull instancetype)init {
-    return [self init];
+    return [self initWithSessionConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
 }
 
 - (nonnull instancetype)initWithSessionConfiguration:(nonnull NSURLSessionConfiguration *)sessionConfiguration {
     if (self = [super init]) {
-        
+        _operationClass = [ZZWebImageDownloaderOperation class];
+        _shouldDecompressImages = YES;
+        _executionOrder = ZZWebImageDownloaderFIFOExecutionOrder;
+        _downloadQueue = [NSOperationQueue new];
+        _downloadQueue.maxConcurrentOperationCount = 6;
+        _downloadQueue.name = @"com.zhuanzhuan.ZZWebImageDownloader";
+#ifdef SD_WEBP
+        _HTTPHeaders = [@{@"Accept": @"image/webp,image/*;q=0.8"} mutableCopy];
+#else
+        _HTTPHeaders = [@{@"Accept": @"image/*;q=0.8"} mutableCopy];
+#endif
+        _barrierQueue = dispatch_queue_create("com.zhuanzhuan.ZZWebImageDownloaderBarrierQueue", DISPATCH_QUEUE_CONCURRENT);
+        _downloadTimeout = 15.0;
+        [self createNewSessionWithConfiguration:sessionConfiguration];
     }
+    return self;
+}
+
+- (void)createNewSessionWithConfiguration:(NSURLSessionConfiguration *)sessionConfiguration {
+    [self cancelAllDownloads];
+    
+    if (self.session) [self.session invalidateAndCancel];
+    
+    sessionConfiguration.timeoutIntervalForRequest = self.downloadTimeout;
+    
+    self.session = [NSURLSession sessionWithConfiguration:sessionConfiguration delegate:self delegateQueue:nil];
+}
+
+- (void)cancelAllDownloads {
+    [self.downloadQueue cancelAllOperations];
+}
+
+#pragma mark Helper methods
+
+- (ZZWebImageDownloaderOperation *)operationWithTask:(NSURLSessionTask *)task {
+    ZZWebImageDownloaderOperation *returnOperation = nil;
+    for (ZZWebImageDownloaderOperation *operation in self.downloadQueue.operations) {
+        if (operation.dataTask.taskIdentifier == task.taskIdentifier) {
+            returnOperation = operation;
+            break;
+        }
+    }
+    return returnOperation;
+}
+
+#pragma mark NSURLSessionDataDelegate
+
+- (void)URLSession:(NSURLSession *)session
+          dataTask:(NSURLSessionDataTask *)dataTask
+didReceiveResponse:(NSURLResponse *)response
+ completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler {
+    
+    ZZWebImageDownloaderOperation *dataOperation = [self operationWithTask:dataTask];
+    // Identify the operation that runs this task and pass it the delegate method
+    
+    [dataOperation URLSession:session dataTask:dataTask didReceiveResponse:response completionHandler:completionHandler];
+}
+
+- (void)URLSession:(NSURLSession *)session
+          dataTask:(NSURLSessionDataTask *)dataTask
+    didReceiveData:(NSData *)data {
+    
+    // Identify the operation that runs this task and pass it the delegate method
+    ZZWebImageDownloaderOperation *dataOperation = [self operationWithTask:dataTask];
+    
+    [dataOperation URLSession:session dataTask:dataTask didReceiveData:data];
+}
+
+- (void)URLSession:(NSURLSession *)session
+          dataTask:(NSURLSessionDataTask *)dataTask
+ willCacheResponse:(NSCachedURLResponse *)proposedResponse
+ completionHandler:(void (^)(NSCachedURLResponse *cachedResponse))completionHandler {
+    
+    // Identify the operation that runs this task and pass it the delegate method
+    ZZWebImageDownloaderOperation *dataOperation = [self operationWithTask:dataTask];
+    
+    [dataOperation URLSession:session dataTask:dataTask willCacheResponse:proposedResponse completionHandler:completionHandler];
+}
+
+#pragma mark NSURLSessionTaskDelegate
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    // Identify the operation that runs this task and pass it the delegate method
+    ZZWebImageDownloaderOperation *dataOperation = [self operationWithTask:task];
+    
+    [dataOperation URLSession:session task:task didCompleteWithError:error];
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURLRequest * _Nullable))completionHandler {
+    
+    completionHandler(request);
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler {
+    
+    // Identify the operation that runs this task and pass it the delegate method
+    ZZWebImageDownloaderOperation *dataOperation = [self operationWithTask:task];
+    
+    [dataOperation URLSession:session task:task didReceiveChallenge:challenge completionHandler:completionHandler];
 }
 
 @end

@@ -26,8 +26,40 @@ typedef NS_ENUM(NSUInteger, ZZWebImageOptions) {
 
 typedef void(^ZZExternalCompletionBlock)(UIImage * _Nullable image, NSError * _Nullable error, ZZImageCacheType cacheType, NSURL * _Nullable imageURL);
 
+typedef NSString * _Nullable (^ZZWebImageCacheKeyFilterBlock)(NSURL * _Nullable url);
+
 @interface ZZWebImageManager : NSObject
 
+#pragma mark - Properties
+
+@property (nonatomic, strong, readonly, nullable) ZZImageCache *imageCache;
+@property (nonatomic, strong, readonly, nullable) ZZWebImageDownloader *imageDownloader;
+
+/**
+ * The cache filter is a block used each time SDWebImageManager need to convert an URL into a cache key. This can
+ * be used to remove dynamic part of an image URL.
+ *
+ * The following example sets a filter in the application delegate that will remove any query-string from the
+ * URL before to use it as a cache key:
+ *
+ * @code
+ 
+ [[SDWebImageManager sharedManager] setCacheKeyFilter:^(NSURL *url) {
+ url = [[NSURL alloc] initWithScheme:url.scheme host:url.host path:url.path];
+ return [url absoluteString];
+ }];
+ 
+ * @endcode
+ */
+@property (nonatomic, copy, nullable) ZZWebImageCacheKeyFilterBlock cacheKeyFilter;
+
+#pragma mark - Methods
+
 + (nonnull instancetype)sharedManager;
+
+/**
+ *Return the cache key for a given URL
+ */
+- (nullable NSString *)cacheKeyForURL:(nullable NSURL *)url;
 
 @end

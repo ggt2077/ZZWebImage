@@ -21,6 +21,7 @@
 		373941A51F67CDB00003D04B /* ZZAnimatedImageView.m in Sources */ = {isa = PBXBuildFile; fileRef = 373941A41F67CDB00003D04B /* ZZAnimatedImageView.m */; };
 		373941DC1F67FE8B0003D04B /* ZZWebImageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 373941DB1F67FE8B0003D04B /* ZZWebImageManager.m */; };
 		3744FE481F6BC94F00FC94CC /* ZZWebImageDownloaderOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 3744FE471F6BC94F00FC94CC /* ZZWebImageDownloaderOperation.m */; };
+		37BAF2921F723AC70041AD64 /* ZZWebImageDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = 37BAF2911F723AC70041AD64 /* ZZWebImageDecoder.m */; };
 		37E546E21F6A995C0024FC11 /* ZZImageCacheConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = 37E546E11F6A995C0024FC11 /* ZZImageCacheConfig.m */; };
 		37F0B3AA1F690F0C00FC7104 /* ZZWebImageDownloader.m in Sources */ = {isa = PBXBuildFile; fileRef = 37F0B3A91F690F0C00FC7104 /* ZZWebImageDownloader.m */; };
 		37F0B3AE1F69116900FC7104 /* ZZImageCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 37F0B3AD1F69116900FC7104 /* ZZImageCache.m */; };
@@ -74,6 +75,8 @@
 		373941DB1F67FE8B0003D04B /* ZZWebImageManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZZWebImageManager.m; sourceTree = "<group>"; };
 		3744FE461F6BC94F00FC94CC /* ZZWebImageDownloaderOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZZWebImageDownloaderOperation.h; sourceTree = "<group>"; };
 		3744FE471F6BC94F00FC94CC /* ZZWebImageDownloaderOperation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZZWebImageDownloaderOperation.m; sourceTree = "<group>"; };
+		37BAF2901F723AC70041AD64 /* ZZWebImageDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZZWebImageDecoder.h; sourceTree = "<group>"; };
+		37BAF2911F723AC70041AD64 /* ZZWebImageDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZZWebImageDecoder.m; sourceTree = "<group>"; };
 		37E546E01F6A995C0024FC11 /* ZZImageCacheConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZZImageCacheConfig.h; sourceTree = "<group>"; };
 		37E546E11F6A995C0024FC11 /* ZZImageCacheConfig.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZZImageCacheConfig.m; sourceTree = "<group>"; };
 		37F0B3A81F690F0C00FC7104 /* ZZWebImageDownloader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZZWebImageDownloader.h; sourceTree = "<group>"; };
@@ -232,6 +235,8 @@
 			children = (
 				373941DA1F67FE8B0003D04B /* ZZWebImageManager.h */,
 				373941DB1F67FE8B0003D04B /* ZZWebImageManager.m */,
+				37BAF2901F723AC70041AD64 /* ZZWebImageDecoder.h */,
+				37BAF2911F723AC70041AD64 /* ZZWebImageDecoder.m */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -405,6 +410,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				37BAF2921F723AC70041AD64 /* ZZWebImageDecoder.m in Sources */,
 				37F0B3AE1F69116900FC7104 /* ZZImageCache.m in Sources */,
 				37F0B3D21F6933BD00FC7104 /* UIView+WebCache.m in Sources */,
 				373941A51F67CDB00003D04B /* ZZAnimatedImageView.m in Sources */,
