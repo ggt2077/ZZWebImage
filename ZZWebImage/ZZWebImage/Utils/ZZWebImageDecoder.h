@@ -11,6 +11,11 @@
 
 @interface UIImage (ForceDecode)
 
+/**
+ 解码图片
+ */
 + (nullable UIImage *)decodedImageWithImage:(nullable UIImage *)image;
+
++ (nullable UIImage *)decodedAndScaledDownImageWithImage:(nullable UIImage *)image;
 
 @end
