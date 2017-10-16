@@ -26,6 +26,22 @@ typedef NS_ENUM(NSUInteger, ZZImageCacheType) {
  */
 @property (nonatomic, nonnull, readonly) ZZImageCacheConfig *config;
 
+/**
+ * The maximum "total cost" of the in-memory image cache. The cost function is the number of pixels held in memory.
+ 内存最大缓存
+ 
+ 可以通过maxMemoryCost来设置内存的最大缓存是多少，这个是以像素为单位的。
+ */
+@property (assign, nonatomic) NSUInteger maxMemoryCost;
+
+/**
+ * The maximum number of objects the cache should hold.
+ 最大内存缓存数量
+ 
+ 可以通过maxMemoryCountLimit来设置内存的最大缓存数量是多少。
+ */
+@property (assign, nonatomic) NSUInteger maxMemoryCountLimit;
+
 #pragma mark - Singleton and initialization
 
 + (nonnull instancetype)sharedImageCache;
