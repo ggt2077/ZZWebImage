@@ -44,6 +44,7 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
 
 @property (nonatomic, strong, nonnull) NSCache *memCache;
 @property (nonatomic, strong, nonnull) NSString *diskCachePath;
+@property (nonatomic, strong, nullable) NSMutableArray<NSString *> *customPaths;
 @property (ZZDispatchQueueSetterSementics, nonatomic, nullable) dispatch_queue_t ioQueue;
 
 @end
@@ -117,6 +118,48 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
 - (nonnull NSString *)makeDiskCachePath:(nonnull NSString *)fullNameSpace {
     NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     return [paths.firstObject stringByAppendingString:fullNameSpace];
+}
+
+- (void)addReadOnlyCachePath:(NSString *)path {
+    if (!self.customPaths) {
+        self.customPaths = [NSMutableArray new];
+    }
+    
+    if (![self.customPaths containsObject:path]) {
+        [self.customPaths addObject:path];
+    }
+}
+
+#pragma mark - Store Ops
+
+- (void)storeImage:(nullable UIImage *)image
+            forKey:(nullable NSString *)key
+        completion:(nullable ZZWebImageNoParamsBlock)completionBlock {
+    [self storeImage:image imageData:nil forKey:key toDisk:YES completion:completionBlock];
+}
+
+- (void)storeImage:(nullable UIImage *)image
+            forKey:(nullable NSString *)key
+            toDisk:(BOOL)toDisk
+        completion:(nullable ZZWebImageNoParamsBlock)completionBlock {
+    [self storeImage:image imageData:nil forKey:key toDisk:toDisk completion:completionBlock];
+}
+
+- (void)storeImage:(nullable UIImage *)image
+         imageData:(nullable NSData *)imageData
+            forKey:(nullable NSString *)key
+            toDisk:(BOOL)toDisk
+        completion:(nullable ZZWebImageNoParamsBlock)completionBlock {
+    if (!image || !key) {
+        if (completionBlock) {
+            completionBlock();
+        }
+        return;
+    }
+    
+    if (self.config.shouldCacheImagesInMemory) {
+        
+    }
 }
 
 #pragma mark - Cache clean Ops
