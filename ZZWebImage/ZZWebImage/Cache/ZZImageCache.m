@@ -7,6 +7,7 @@
 //
 
 #import "ZZImageCache.h"
+#import "NSData+ImageContentType.h"
 
 // See https://github.com/rs/SDWebImage/pull/1141 for discussion
 @interface AutoPurgeCache : NSCache
@@ -158,7 +159,20 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
     }
     
     if (self.config.shouldCacheImagesInMemory) {
-        
+        NSUInteger cost = ZZCacheCostForImage(image);
+        [self.memCache setObject:image forKey:key cost:cost];
+    }
+    
+    if (toDisk) {
+        dispatch_async(self.ioQueue, ^{
+            @autoreleasepool {
+                NSData *data = imageData;
+                if (!data && image) {
+                    ZZImageFormat imageFormatFromData = [NSData zz_imageFormatForImageData:data];
+                }
+                [self storeImageDataToDisk:data forKey:key];
+            }
+        });
     }
 }
 
