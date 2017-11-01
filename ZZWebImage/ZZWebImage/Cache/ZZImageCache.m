@@ -8,6 +8,9 @@
 
 #import "ZZImageCache.h"
 #import "NSData+ImageContentType.h"
+#import "UIImage+MultiFormat.h"
+#import <CommonCrypto/CommonDigest.h>
+#import "UIImage+GIF.h"
 
 // See https://github.com/rs/SDWebImage/pull/1141 for discussion
 @interface AutoPurgeCache : NSCache
@@ -53,6 +56,8 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
 @implementation ZZImageCache {
     NSFileManager *_fileManager;
 }
+
+#pragma mark - Singleton, init, dealloc
 
 + (nonnull instancetype)sharedImageCache {
     static dispatch_once_t once;
@@ -114,6 +119,19 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
     return self;
 }
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    ZZDispatchQueueRelease(_ioQueue);
+}
+
+- (void)checkIfQueueIsIoQueue {
+    const char *currentQueueLabel = dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL);
+    const char *ioQueueLabel = dispatch_queue_get_label(self.ioQueue);
+    if (strcmp(currentQueueLabel, ioQueueLabel) != 0) {
+        NSLog(@"This method should be called from the ioQueue");
+    }
+}
+
 #pragma mark - Cache paths
 
 - (nonnull NSString *)makeDiskCachePath:(nonnull NSString *)fullNameSpace {
@@ -129,6 +147,29 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
     if (![self.customPaths containsObject:path]) {
         [self.customPaths addObject:path];
     }
+}
+
+- (nullable NSString *)cachePathForKey:(nullable NSString *)key inPath:(nonnull NSString *)path {
+    NSString *filename = [self cachedFileNameForKey:key];
+    return [path stringByAppendingPathComponent:filename];
+}
+
+- (nullable NSString *)defaultCachePathForKey:(nullable NSString *)key {
+    return [self cachePathForKey:key inPath:self.diskCachePath];
+}
+
+- (nullable NSString *)cachedFileNameForKey:(nullable NSString *)key {
+    const char *str = key.UTF8String;
+    if (str == NULL) {
+        str = "";
+    }
+    unsigned char r[CC_MD5_DIGEST_LENGTH];
+    CC_MD5(str, (CC_LONG)strlen(str), r);
+    NSString *filename = [NSString stringWithFormat:@"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%@",
+                          r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10],
+                          r[11], r[12], r[13], r[14], r[15], [key.pathExtension isEqualToString:@""] ? @"" : [NSString stringWithFormat:@".%@", key.pathExtension]];
+    
+    return filename;
 }
 
 #pragma mark - Store Ops
@@ -162,18 +203,132 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
         NSUInteger cost = ZZCacheCostForImage(image);
         [self.memCache setObject:image forKey:key cost:cost];
     }
-    
+    // 写入磁盘时，异步使用专属的串行IO队列
     if (toDisk) {
         dispatch_async(self.ioQueue, ^{
             @autoreleasepool {
                 NSData *data = imageData;
                 if (!data && image) {
                     ZZImageFormat imageFormatFromData = [NSData zz_imageFormatForImageData:data];
+                    data = [image zz_imageDataAsFormat:imageFormatFromData];
                 }
                 [self storeImageDataToDisk:data forKey:key];
             }
+            
+            if (completionBlock) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionBlock();
+                });
+            }
         });
+    } else {
+        if (completionBlock) {
+            completionBlock();
+        }
     }
+}
+
+- (void)storeImageDataToDisk:(nullable NSData *)imageData forKey:(nullable NSString *)key {
+    if (!imageData || !key) {
+        return;
+    }
+    // 检查是否在IO串行队列
+    [self checkIfQueueIsIoQueue];
+    
+    if (![_fileManager fileExistsAtPath:_diskCachePath]) {
+        [_fileManager createDirectoryAtPath:_diskCachePath withIntermediateDirectories:YES attributes:nil error:NULL];
+    }
+    
+    // get cache Path for image key
+    NSString *cachePathForKey = [self defaultCachePathForKey:key];
+    // transform ti NSUrl
+    NSURL *fileURL = [NSURL fileURLWithPath:cachePathForKey];
+    
+    [_fileManager createFileAtPath:cachePathForKey contents:imageData attributes:nil];
+    
+    // disable iCloud backup
+    if (self.config.shouldDisableiCloud) {
+        [fileURL setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
+    }
+}
+
+#pragma mark - Query and Retrieve Ops
+
+- (void)diskImageExistsWithKey:(nullable NSString *)key
+                    comlpetion:(nullable ZZWebImageCheckCacheCompletionBlock)completionBlock {
+    dispatch_async(_ioQueue, ^{
+        BOOL exists = [_fileManager fileExistsAtPath:[self defaultCachePathForKey:key]];
+        
+        // fallback because of https://github.com/rs/SDWebImage/pull/976 that added the extension to the disk file name
+        // checking the key with and without the extension
+        if (!exists) {
+            exists = [_fileManager fileExistsAtPath:[self defaultCachePathForKey:key].stringByDeletingPathExtension];
+        }
+        
+        if (completionBlock) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionBlock(exists);
+            });
+        }
+    });
+}
+
+- (nullable NSOperation *)queryCacheOperationForKey:(nullable NSString *)key
+                                               done:(nullable ZZCacheQueryCompletedBlock)doneBlock {
+    if (!key) {
+        if (doneBlock) {
+            doneBlock(nil, nil, ZZImageCacheTypeNone);
+        }
+        return nil;
+    }
+    
+    // TODO: 此处没处理完
+    UIImage *image = [self imageFromMemoryCacheForKey:key];
+    if (image) {
+        NSData *diskData = nil;
+        if ([image isGIF]) {
+            
+        }
+    }
+}
+
+// 从磁盘中获取key对应的imageData
+- (nullable NSData *)diskImageDataBySearchingAllPathsForKey:(nullable NSString *)key {
+    NSString *defaultPath = [self defaultCachePathForKey:key];
+    NSData *data = [NSData dataWithContentsOfFile:defaultPath];
+    if (data) {
+        return data;
+    }
+    
+    // fallback because of https://github.com/rs/SDWebImage/pull/976 that added the extension to the disk file name
+    // checking the key with and without the extension
+    data = [NSData dataWithContentsOfFile:defaultPath.stringByDeletingPathExtension];
+    if (data) {
+        return data;
+    }
+    
+    NSArray<NSString *> *customPaths = [self.customPaths copy];
+    for (NSString *path in customPaths) {
+        NSString *filePath = [self cachePathForKey:key inPath:path];
+        NSData *imageData = [NSData dataWithContentsOfFile:filePath];
+        if (imageData) {
+            return imageData;
+        }
+        
+        // fallback because of https://github.com/rs/SDWebImage/pull/976 that added the extension to the disk file name
+        // checking the key with and without the extension
+        imageData = [NSData dataWithContentsOfFile:filePath.stringByDeletingPathExtension];
+        if (imageData) {
+            return imageData;
+        }
+    }
+    
+    return nil;
+}
+
+
+- (nullable UIImage *)imageFromMemoryCacheForKey:(NSString *)key {
+    return [self.memCache objectForKey:key];
 }
 
 #pragma mark - Cache clean Ops
@@ -183,6 +338,22 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
  */
 - (void)clearMemory {
     [self.memCache removeAllObjects];
+}
+
+- (void)clearDiskOnCompletion:(nullable ZZWebImageNoParamsBlock)completion {
+    dispatch_async(self.ioQueue, ^{
+        [_fileManager removeItemAtPath:self.diskCachePath error:nil];
+        [_fileManager createDirectoryAtPath:self.diskCachePath
+                withIntermediateDirectories:YES
+                                 attributes:nil
+                                      error:NULL];
+        
+        if (completion) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion();
+            });
+        }
+    });
 }
 
 - (void)deleteOldFiles {
@@ -288,5 +459,7 @@ FOUNDATION_STATIC_INLINE NSUInteger ZZCacheCostForImage(UIImage *image) {
         bgTask = UIBackgroundTaskInvalid;
     }];
 }
+
+
 
 @end

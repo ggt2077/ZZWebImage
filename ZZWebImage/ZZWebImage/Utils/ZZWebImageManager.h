@@ -11,9 +11,45 @@
 #import "ZZWebImageDownloader.h"
 #import "ZZImageCache.h"
 
+/*
+ //失败后重试
+ SDWebImageRetryFailed = 1 << 0,
+ 
+ //UI交互期间开始下载，导致延迟下载比如UIScrollView减速。
+ SDWebImageLowPriority = 1 << 1,
+ 
+ //只进行内存缓存
+ SDWebImageCacheMemoryOnly = 1 << 2,
+ 
+ //这个标志可以渐进式下载,显示的图像是逐步在下载
+ SDWebImageProgressiveDownload = 1 << 3,
+ 
+ //刷新缓存
+ SDWebImageRefreshCached = 1 << 4,
+ 
+ //后台下载
+ SDWebImageContinueInBackground = 1 << 5,
+ 
+ //NSMutableURLRequest.HTTPShouldHandleCookies = YES;
+ 
+ SDWebImageHandleCookies = 1 << 6,
+ 
+ //允许使用无效的SSL证书
+ //SDWebImageAllowInvalidSSLCertificates = 1 << 7,
+ 
+ //优先下载
+ SDWebImageHighPriority = 1 << 8,
+ 
+ //延迟占位符
+ SDWebImageDelayPlaceholder = 1 << 9,
+ 
+ //改变动画形象
+ SDWebImageTransformAnimatedImage = 1 << 10,
+ */
+
 typedef NS_ENUM(NSUInteger, ZZWebImageOptions) {
     /**
-     当网址无法下载时，不会继续尝试。
+     失败后重试
      */
     ZZWebImageRetryFailed = 1 << 0,
     
@@ -25,6 +61,8 @@ typedef NS_ENUM(NSUInteger, ZZWebImageOptions) {
 };
 
 typedef void(^ZZExternalCompletionBlock)(UIImage * _Nullable image, NSError * _Nullable error, ZZImageCacheType cacheType, NSURL * _Nullable imageURL);
+
+typedef void(^ZZInternalCompletionBlock)(UIImage * _Nullable image, NSData * _Nullable data, NSError * _Nullable error, ZZImageCacheType cacheType, BOOL finished, NSURL * _Nullable imageURL);
 
 typedef NSString * _Nullable (^ZZWebImageCacheKeyFilterBlock)(NSURL * _Nullable url);
 
@@ -56,6 +94,11 @@ typedef NSString * _Nullable (^ZZWebImageCacheKeyFilterBlock)(NSURL * _Nullable 
 #pragma mark - Methods
 
 + (nonnull instancetype)sharedManager;
+
+- (nullable id<ZZWebImageOperation>)loadImageWithURL:(nullable NSURL *)url
+                                             options:(ZZWebImageOptions)options
+                                            progress:(nullable ZZWebImageDownloaderProgressBlock)progress
+                                          completion:(nullable ZZInternalCompletionBlock)completionBlock;
 
 /**
  *Return the cache key for a given URL

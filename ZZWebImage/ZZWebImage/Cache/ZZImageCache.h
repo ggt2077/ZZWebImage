@@ -12,10 +12,27 @@
 
 typedef NS_ENUM(NSUInteger, ZZImageCacheType) {
     /**
+     * The image wasn't available the SDWebImage caches, but was downloaded from the web.
      不使用缓存，直接从网络下载
      */
     ZZImageCacheTypeNone,
+    /**
+     * The image was obtained from the disk cache.
+     图像是从磁盘缓存获得的。
+     */
+    SDImageCacheTypeDisk,
+    /**
+     * The image was obtained from the memory cache.
+     图像是从内存缓存获得的。
+     */
+    SDImageCacheTypeMemory
 };
+
+typedef void(^ZZCacheQueryCompletedBlock)(UIImage * _Nullable image, NSData * _Nullable data, ZZImageCacheType cacheType);
+
+typedef void(^ZZWebImageCheckCacheCompletionBlock)(BOOL isInCache);
+
+typedef void(^ZZWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger totalSize);
 
 @interface ZZImageCache : NSObject
 
@@ -44,10 +61,26 @@ typedef NS_ENUM(NSUInteger, ZZImageCacheType) {
 
 #pragma mark - Singleton and initialization
 
+/**
+ * Returns global shared cache instance
+ *
+ * @return ZZImageCache global instance
+ */
 + (nonnull instancetype)sharedImageCache;
 
+/**
+ * Init a new cache store with a specific namespace
+ *
+ * @param ns The namespace to use for this cache store
+ */
 - (nonnull instancetype)initWithNamespace:(nonnull NSString *)ns;
 
+/**
+ * Init a new cache store with a specific namespace and directory
+ *
+ * @param ns        The namespace to use for this cache store
+ * @param directory Directory to cache disk images in
+ */
 - (nonnull instancetype)initWithNamespace:(nonnull NSString *)ns
                        diskCacheDirectory:(nonnull NSString *)directory;
 
@@ -128,5 +161,21 @@ typedef NS_ENUM(NSUInteger, ZZImageCacheType) {
  * @param key        The unique image cache key, usually it's image absolute URL
  */
 - (void)storeImageDataToDisk:(nullable NSData *)imageData forKey:(nullable NSString *)key;
+
+#pragma mark - Query and Retrieve Ops
+
+/**
+ *  Async check if image exists in disk cache already (does not load the image)
+ *
+ *  @param key             the key describing the url
+ *  @param completionBlock the block to be executed when the check is done.
+ *  @note the completion block will be always executed on the main queue
+ */
+- (void)diskImageExistsWithKey:(nullable NSString *)key
+                    comlpetion:(nullable ZZWebImageCheckCacheCompletionBlock)completionBlock;
+
+- (nullable NSOperation *)queryCacheOperationForKey:(nullable NSString *)key done:(nullable ZZCacheQueryCompletedBlock)doneBlock;
+
+- (nullable UIImage *)imageFromMemoryCacheForKey:(NSString *)key;
 
 @end
